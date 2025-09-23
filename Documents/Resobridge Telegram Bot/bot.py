@@ -1,8 +1,9 @@
+import os
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Replace this with your token from BotFather
-TOKEN = "8237062301:AAHhP4K74slBxt5FCJb8-KZJ1yNap0eK2-M"
+TOKEN = os.getenv("BOT_TOKEN")  # token will come from Render, not hardcoded
 
 # Replace with your group chat ID
 REPORT_GROUP_ID = -4802281370
