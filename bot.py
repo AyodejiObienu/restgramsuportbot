@@ -11,9 +11,11 @@ def home():
     return "Bot is running fine!", 200
 
 # --- Telegram bot setup ---
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+TOKEN = os.getenv("BOT_TOKEN")
 
 application = Application.builder().token(TOKEN).build()
+
+
 
 # Example command
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -26,6 +28,14 @@ async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(update.message.text)
 
 application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
+
+
+GROUP_ID = os.getenv("REPORT_GROUP_ID")
+async def forward_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    if update.message and GROUP_ID:
+        await context.bot.send_message(chat_id=GROUP_ID, text=f"[User] {update.message.text}")
+
+application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_to_group))
 
 # --- Main entrypoint ---
 if __name__ == "__main__":
