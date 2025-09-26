@@ -1,53 +1,38 @@
 import os
 from flask import Flask
 from telegram import Update
-from telegram.ext import Application, CommandHandler, MessageHandler, filters, ContextTypes
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-# --- Flask health check ---
+# Get environment variables
+TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
+GROUP_ID = os.getenv("TELEGRAM_GROUP_ID")
+
+# Initialize bot application
+application = Application.builder().token(TOKEN).build()
+
+# Flask app for Render health check
 app = Flask(__name__)
 
 @app.route("/")
 def home():
-    return "Bot is running fine!", 200
+    return "Bot is alive!", 200
 
-# --- Telegram bot setup ---
-TOKEN = os.getenv("BOT_TOKEN")
-
-application = Application.builder().token(TOKEN).build()
-
-
-
-# Example command
+# Telegram command handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Hello! I'm alive on Render 🚀")
+    await update.message.reply_text("Hello! 👋 I’m your support bot. How can I help you?")
 
+async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text("Send me a message and I’ll forward it to the support team.")
+
+# Register handlers
 application.add_handler(CommandHandler("start", start))
+application.add_handler(CommandHandler("help", help_command))
 
-# Example echo handler
-async def echo(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text(update.message.text)
-
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, echo))
-
-
-GROUP_ID = os.getenv("REPORT_GROUP_ID")
-async def forward_to_group(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    if update.message and GROUP_ID:
-        await context.bot.send_message(chat_id=GROUP_ID, text=f"[User] {update.message.text}")
-
-application.add_handler(MessageHandler(filters.TEXT & ~filters.COMMAND, forward_to_group))
-
-# --- Main entrypoint ---
 if __name__ == "__main__":
-    import asyncio
     import threading
 
-    # Run Telegram bot in background
-    def run_bot():
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    # Start Flask in background thread
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))).start()
 
-    bot_thread = threading.Thread(target=run_bot, daemon=True)
-    bot_thread.start()
-
-    # Run Flask (Render needs this to stay alive)
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 10000)))
+    # Run Telegram bot in main thread (fixes asyncio error)
+    application.run_polling(allowed_updates=Update.ALL_TYPES)
