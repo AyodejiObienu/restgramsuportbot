@@ -26,17 +26,20 @@ def run_flask():
 # ---- Telegram handlers ----
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     await update.message.reply_text(
-        "👋 Welcome to ResoBridge Support!\n\n"
-        "Use /faq to see frequently asked questions\n"
-        "Or use /report <your message> to send an issue directly to our team."
+        "welcome to Resobridge Support!\n\n"
+        "use /faq to see questions we think you might ask \n"
+        "or just use /report <your message> to send an issue directly to our team."
     )
 
 async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faqs = (
-        "❓ *Frequently Asked Questions*\n\n"
-        "1. How do I sign up?\n   → Scan a QR code or use the site.\n\n"
-        "2. How do I submit a complaint?\n   → Use the complaints section in the dashboard.\n\n"
-        "3. Who do I contact for support?\n   → Email resobridge.si@gmail.com"
+        ""Here are some questions we think you might ask:\n\n"
+        "1. How do I sign up?\n - Scan a QR code near you or go to resobridge.netlify.app\n\n"
+        "2. How do I submit a complaint?\n - Go to the complaints section in the user dashboard.\n\n"
+        "3. Who do I contact for support?\n - Email resobridge.si@gmail.com\n\n"
+        "4. How do I reset my password?\n - Use the 'Forgot Password' link on the login page.\n\n"
+        "6. How do I delete my account?\n - Go to the settings section in the student dashboard and scroll down to the 'Danger Zone' section.\n\n"
+        "For more details, visit our website @resobridge.netlify.app or send us a /report here"
     )
     await update.message.reply_text(faqs, parse_mode="Markdown")
 
@@ -44,13 +47,13 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_report = " ".join(context.args)
     if not user_report:
         await update.message.reply_text(
-            "⚠ Please type your report after the command.\n\n"
-            "Example: /report I couldn't log in."
+            "please type out your report after the command.\n\n"
+            "example: /report I couldn't log in."
         )
         return
 
     # Acknowledge the user
-    await update.message.reply_text("✅ Thanks! Your report has been sent to the ResoBridge team.")
+    await update.message.reply_text("thank you so much! we will see to it that your report is attended to as soon as possible")
 
     # Forward to your internal group (if set)
     if REPORT_GROUP_ID:
