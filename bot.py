@@ -1,6 +1,6 @@
 import os
 from threading import Thread
-from flask import Flask
+from flask import Flask, request
 from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
@@ -11,17 +11,19 @@ REPORT_GROUP_ID = int(os.getenv("REPORT_GROUP_ID", "0"))  # set this on Render
 if not TOKEN:
     raise RuntimeError("BOT_TOKEN is not set in environment variables")
 
-# ---- Tiny Flask app so Render sees a bound port ----
+# ---- Flask app ----
 flask_app = Flask("resobridge_bot")
 
 @flask_app.route("/")
 def index():
     return "ResoBridge Support Bot is running."
 
-def run_flask():
-    port = int(os.environ.get("PORT", 5000))
-    # host 0.0.0.0 so Render can reach it
-    flask_app.run(host="0.0.0.0", port=port)
+# Webhook endpoint for Telegram
+@flask_app.route(f"/webhook/{TOKEN}", methods=["POST"])
+def webhook():
+    update = Update.de_json(request.get_json(force=True), app.bot)
+    app.update_queue.put_nowait(update)
+    return "ok", 200
 
 # ---- Telegram handlers ----
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -66,17 +68,24 @@ async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
         )
 
 def main():
-    # Start Flask in a background thread so it binds PORT (Render happy)
-    Thread(target=run_flask, daemon=True).start()
-
-    # Build and run the Telegram bot
+    global app
+    # Build Telegram app
     app = Application.builder().token(TOKEN).build()
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CommandHandler("faq", faq))
     app.add_handler(CommandHandler("report", report))
 
-    print("Starting Telegram bot (polling)...")
-    app.run_polling()
+    # Start Flask in background
+    Thread(target=lambda: flask_app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000))), daemon=True).start()
+
+    # Set Telegram webhook
+    webhook_url = f"https://{os.getenv('RENDER_EXTERNAL_HOSTNAME')}/webhook/{TOKEN}"
+    print(f"Setting webhook to {webhook_url}")
+    app.run_webhook(
+        listen="0.0.0.0",
+        port=int(os.environ.get("PORT", 5000)),
+        webhook_url=webhook_url,
+    )
 
 if __name__ == "__main__":
     main()
