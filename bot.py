@@ -1,68 +1,79 @@
 import os
-import logging
-from flask import Flask, request
-from telegram import Bot, Update
-from telegram.ext import Dispatcher, CommandHandler, MessageHandler, Filters
+from threading import Thread
+from flask import Flask
+from telegram import Update
+from telegram.ext import Application, CommandHandler, ContextTypes
 
-# Enable logging
-logging.basicConfig(
-    format="%(asctime)s - %(name)s - %(levelname)s - %(message)s", level=logging.INFO
-)
-logger = logging.getLogger(__name__)
+# Load token from environment (do NOT hardcode)
+TOKEN = os.getenv("BOT_TOKEN")
+REPORT_GROUP_ID = int(os.getenv("REPORT_GROUP_ID", "0"))  # set this on Render
 
-# Environment variables
-TOKEN = os.getenv("BOT_TOKEN")  # Your bot token from BotFather
-WEBHOOK_URL = os.getenv("WEBHOOK_URL")  # Your Render URL (https://your-app.onrender.com/webhook/<TOKEN>)
+if not TOKEN:
+    raise RuntimeError("BOT_TOKEN is not set in environment variables")
 
-bot = Bot(token=TOKEN)
-app = Flask(__name__)
+# ---- Tiny Flask app so Render sees a bound port ----
+flask_app = Flask("resobridge_bot")
 
-# Dispatcher to handle commands
-dispatcher = Dispatcher(bot, None, workers=0, use_context=True)
+@flask_app.route("/")
+def index():
+    return "ResoBridge Support Bot is running."
 
-# --- Command Handlers ---
-def start(update: Update, context):
-    update.message.reply_text(
-        "👋 Welcome! I am your ResoBridge Support Bot.\n\n"
-        "Use /report to submit an issue or /faq to see common answers."
+def run_flask():
+    port = int(os.environ.get("PORT", 5000))
+    # host 0.0.0.0 so Render can reach it
+    flask_app.run(host="0.0.0.0", port=port)
+
+# ---- Telegram handlers ----
+async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    await update.message.reply_text(
+        "👋 Welcome to ResoBridge Support!\n\n"
+        "Use /faq to see frequently asked questions\n"
+        "Or use /report <your message> to send an issue directly to our team."
     )
 
-def report(update: Update, context):
-    update.message.reply_text(
-        "📝 Please type your report in detail.\n\n"
-        "Our team will review it and get back to you soon!"
-    )
-
-def faq(update: Update, context):
-    update.message.reply_text(
+async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    faqs = (
         "❓ *Frequently Asked Questions*\n\n"
-        "1. How do I submit a request?\n   → Use the /report command.\n\n"
-        "2. Who can see my reports?\n   → Only the admin team.\n\n"
-        "3. How fast will I get a response?\n   → Usually within 24 hours.",
-        parse_mode="Markdown"
+        "1. How do I sign up?\n   → Scan a QR code or use the site.\n\n"
+        "2. How do I submit a complaint?\n   → Use the complaints section in the dashboard.\n\n"
+        "3. Who do I contact for support?\n   → Email resobridge.si@gmail.com"
     )
+    await update.message.reply_text(faqs, parse_mode="Markdown")
 
-# Register handlers
-dispatcher.add_handler(CommandHandler("start", start))
-dispatcher.add_handler(CommandHandler("report", report))
-dispatcher.add_handler(CommandHandler("faq", faq))
+async def report(update: Update, context: ContextTypes.DEFAULT_TYPE):
+    user_report = " ".join(context.args)
+    if not user_report:
+        await update.message.reply_text(
+            "⚠ Please type your report after the command.\n\n"
+            "Example: /report I couldn't log in."
+        )
+        return
 
-# --- Flask Routes ---
-@app.route("/")
-def home():
-    return "ResoBridge Bot is running 🚀"
+    # Acknowledge the user
+    await update.message.reply_text("✅ Thanks! Your report has been sent to the ResoBridge team.")
 
-@app.route(f"/webhook/{TOKEN}", methods=["POST"])
-def webhook():
-    update = Update.de_json(request.get_json(force=True), bot)
-    dispatcher.process_update(update)
-    return "OK", 200
+    # Forward to your internal group (if set)
+    if REPORT_GROUP_ID:
+        user = update.effective_user
+        reporter = f"@{user.username}" if user.username else user.full_name
+        await context.bot.send_message(
+            chat_id=REPORT_GROUP_ID,
+            text=f"📢 *New Report Received*\n\nFrom: {reporter}\n\n{user_report}",
+            parse_mode="Markdown"
+        )
+
+def main():
+    # Start Flask in a background thread so it binds PORT (Render happy)
+    Thread(target=run_flask, daemon=True).start()
+
+    # Build and run the Telegram bot
+    app = Application.builder().token(TOKEN).build()
+    app.add_handler(CommandHandler("start", start))
+    app.add_handler(CommandHandler("faq", faq))
+    app.add_handler(CommandHandler("report", report))
+
+    print("Starting Telegram bot (polling)...")
+    app.run_polling()
 
 if __name__ == "__main__":
-    # Set webhook (only needed once, after deployment)
-    if WEBHOOK_URL:
-        bot.set_webhook(f"{WEBHOOK_URL}/webhook/{TOKEN}")
-        logger.info("Webhook set to %s/webhook/%s", WEBHOOK_URL, TOKEN)
-
-    # Run Flask app
-    app.run(host="0.0.0.0", port=int(os.environ.get("PORT", 5000)))
+    main()
