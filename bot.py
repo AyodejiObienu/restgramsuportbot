@@ -33,7 +33,7 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
 
 async def faq(update: Update, context: ContextTypes.DEFAULT_TYPE):
     faqs = (
-        ""Here are some questions we think you might ask:\n\n"
+        "Here are some questions we think you might ask:\n\n"
         "1. How do I sign up?\n - Scan a QR code near you or go to resobridge.netlify.app\n\n"
         "2. How do I submit a complaint?\n - Go to the complaints section in the user dashboard.\n\n"
         "3. Who do I contact for support?\n - Email resobridge.si@gmail.com\n\n"
