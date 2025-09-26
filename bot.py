@@ -4,8 +4,8 @@ from telegram import Update
 from telegram.ext import Application, CommandHandler, ContextTypes
 
 # Get environment variables
-TOKEN = os.getenv("TELEGRAM_BOT_TOKEN")
-GROUP_ID = os.getenv("TELEGRAM_GROUP_ID")
+TOKEN = os.getenv("BOT_TOKEN")
+GROUP_ID = os.getenv("REPORT_GROUP_ID")
 
 # Initialize bot application
 application = Application.builder().token(TOKEN).build()
